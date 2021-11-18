@@ -1,0 +1,32 @@
+---
+title: "Austin Gallyer"
+image: "profile.jpg"
+links:
+  - label: Google Scholar
+    url: "https://scholar.google.com/citations?user=mQB9OUMAAAAJ&hl=en"
+  - label: Twitter
+    url: "https://twitter.com/AGallyer"
+  - label: GitHub
+    url: "https://github.com/AGallyer"
+  - label: Email
+    url: "mailto:agallyer@neuro.fsu.edu"
+output:
+  postcards::trestles
+site: distill::distill_website
+---
+## Bio
+I am a doctoral candidate in neuroscience at Florida State University under the mentorship of Greg Hajcak and Thomas Joiner. My research focuses on understanding the neural networks that may play a role in the transition from thinking about suicide to engaging in suicidal behavior. Specifically, I'm interested in discovering the distinct yet interdependent roles of the areas in the salience network, and how dysfunction in this network may lead to reduced fear of death and suicide. I am also interested in discovering how, where, and when valence and salience are represented in the brain. In my dissertation, I am using intermittent theta-burst stimulation to target the amygdala to test its effect on the late positive potential. 
+
+## Education
+
+**Florida State University** | Tallahassee, FL
+
+Ph.D. in Neuroscience | August 2020 - Present
+
+**Florida State University** | Tallahassee, FL
+
+M.S. in Clinical Psychology | August 2017 - August 2020
+
+**Southern Utah University** | Cedar City, UT
+
+B.S. in Psychology and Biology (minor) | August 2012 - May 2017

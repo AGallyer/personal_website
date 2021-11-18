@@ -1,0 +1,22 @@
+name: "personal_website"
+theme: "my_theme.css"
+title: "Austin J. Gallyer"
+description: |
+  Academic website for Austin Gallyer. 
+output_dir: "_site"
+navbar:
+  left:
+    - text: "Home"
+      href: index.html
+    - text: "R Stats Blog"
+      href: r_stats_blog.html
+  right:
+    - text: "CV"
+      href: gallyer_cv.pdf
+    - text: "Google Scholar"
+      href: https://scholar.google.com/citations?user=mQB9OUMAAAAJ&hl=en
+    - icon: fa fa-github
+      href: https://github.com/AGallyer
+    - icon: fa fa-twitter
+      href: https://twitter.com/AGallyer
+output: distill::distill_article

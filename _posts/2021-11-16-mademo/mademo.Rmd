@@ -1,0 +1,204 @@
+---
+title: "Meta-analysis demo in metafor"
+description: |
+  In this blog I'll be walking you through the basic steps of a meta-analysis using metafor.
+base_url: agallyer.netlify.com
+author:
+  - name: Austin Gallyer
+date: 2021-11-16
+output:
+  distill::distill_article:
+    self_contained: false
+---
+# Background
+I'm TA'ing for a meta-analysis course and the final tutorial I gave at the end of the course was to put together everything we had so far to conduct a meta-analysis from start (e.g., importing the data) to finish (e.g., creating publication ready figures). 
+
+# Info about the data
+This is a fake data set (created by Rick Wagner, the instructor for the meta-analysis course at FSU) consisting of 20 studies with a between-group design. In this case, the story behind the data set is that these are studies examining some kind of intervention for reading.
+
+# Importing the data
+First we will load the packages we need. If you don't have *metafor* or the *tidyverse* go ahead and run install.packages for both of those. 
+
+```{r packages, include=TRUE}
+library(tidyverse)
+library(metafor)
+```
+
+Next, we will import the data. Because the data set is in the same directory as my working directory, along with the code, I don't need to specify the path. 
+
+```{r import data, include=TRUE}
+dat <- read_csv('metafordata.csv')
+```
+
+It is always a good idea to take a look at your data after you read it in to make sure it looks like you expect it to look. To do that, I'm going to use the *glimpse* function. 
+
+```{r inspect data, include=TRUE}
+glimpse(dat)
+```
+
+From this we can see we have 20 studies (i.e., rows), means, standard deviations, and sample sizes for each of our groups. We also have a moderator variable called *grade* that shows what grade level the participants in this study were in. 
+
+# Calculating effect size
+
+Next, we need to calculate an effect size for each of our studies. Because our studies are a between-group design, we are going to use Hedges' *g* for our effect size. *metafor* has a very flexible function called *escalc* that we can use to calculate this. 
+
+```{r calculate effect size, include=TRUE}
+dat <- escalc(measure = 'SMD', m1i = EXPmean, sd1i = EXPsd, m2i = CONmean, 
+              sd2i = CONsd, n1i = EXPn, n2i = CONn, data = dat, 
+              var.names = c('g', 'var_g'))
+```
+
+Let's walk through the arguments. First, we tell the function what kind of effect size we want. In this case, we are getting a standardized mean difference, or SMD. If you read the *metafor* documentation, this can be a little bit confusing because in some places it is unclear what kind of effect size this is and in some places it incorrectly says that this calculates Cohen's *d*. But if you look carefully, you see that it is Cohen's *d* with a correction that turns it into Hedges' *g*. The next six arguments specify the column names corresponding to the means, standard deviations, and sample sizes of our groups. By the way we set it up here, Hedges' *g* will be calculated, with positive number indicating that our experimental group had a larger mean than the control group. If you wanted the opposite, then you'd want to make sure the control group information goes into the first group arguments (e.g., m1i = CONmean). Next, we give the function our data, and then we give our own variable names for the two numbers this function is going to calculate for us. The defaults are Ti and Vi, corresponding to the effect size and its variance. Because we specify g and var_g, that will be the names of the corresponding columns in our data set. 
+
+```{r}
+glimpse(dat)
+```
+
+Voila! We now have our effect size and its variance for each study. 
+
+# Calculating average weighted effect size
+
+Here we are! If you were doing a meta-analysis for real you have been spending months, possibly years reading and coding articles now you get to find out what the average weighted effect size is! This is **the** number that people want to know.
+
+```{r meta analysis, include=TRUE}
+re_model <- rma(g ~ 1, var_g, data = dat, method = 'REML')
+```
+
+This is a random-effects model using restricted maximum-likelihood. I made a few things more explicit in the way I coded it. The first part is r-style formula syntax. g is on the left-hand side of the ~ indicating that it is the dependent variable. But in this case, we only have a 1 on the other side of the ~. This means this is an intercept-only model and thus, we will only get the average-weighted effect size without any predictors/moderators. We specify the variance of our effect sizes, the data, and the method, even though REML is the default. 
+
+Now, let's take a look at the results.
+
+```{r include=TRUE}
+summary(re_model)
+```
+
+There is quite a bit of output here, but I'll only walk through the highlights. 
+
+At the top we have k = 20, which tell us we have 20 effect sizes in the meta-analysis. $I^2 = 94.27\%$ is the variability in effect estimates that is due to heterogeneity rather than sampling error (chance). Next, we have the Q-test for heterogeneity. This is significant, suggesting that we reject the null that there is not significant heterogeneity. 
+
+Next, we have our estimate. This is Hedges' $g = 0.94$, which suggests that our experimental group is nearly a full standard deviation larger than the control group. This average weighted effect size is significant, as illustrated by the *p*-value. 
+
+# Moderator analyses/Meta-regression
+
+Now that we have our average weighted effect size, we are likely interested in whether any variables predict differences in that effect size across studies. In this data set, we have a variable called grade that we can use as a predictor of our average weighted effect size. 
+
+```{r meta-regression, include=TRUE}
+re_metareg <- rma(g ~ grade, var_g, data = dat, method = 'REML')
+```
+
+All we had to do was, instead of having a 1 on the right side of the ~, we add the name of the variable we are interested in using to predict our effect size. 
+
+```{r, include=TRUE}
+summary(re_metareg)
+
+```
+
+We now have the estimate of the relationship between grade and our effect size. Our $b =$ `r re_metareg$b[2]`, which means that there is a negative relationship between grade and effect size. Specifically, for every 1 unit increase in grade, the effect (i.e., difference between experimental and control groups) decreased by .31, which is pretty big!
+
+# Publication bias
+
+Next, we want to examine whether publication bias is influencing our results. The rule here is that no one tool can tell you for sure whether publication bias is present. You must go by the preponderance of evidence, and remember that some approaches can be influenced by things other than publication bias. 
+
+## Funnel plot
+
+First, we will do the classic funnel plot.
+
+```{r}
+funnel(re_model)
+```
+
+What you're looking for is whether there seems to be a lack of points in the left hand side of the funnel, with corresponding points on the right hand side. From this plot a few things stand out. First, it looks like we have a huge outlier on the bottom right. Second, there is maybe another outlier in the other direction, but it is the only study that has a Hedges' *g* in the opposite direction. Based on this plot it isn't super clear to me whether any publication bias is present. Technically, this would be showing small study bias, which means that smaller studies tend to have a larger effect size. 
+
+## Egger's regression
+
+Funnel plots are very much a judgment call and there is some evidence that meta-analyists are not very good at spotting publication bias using them. So you'll definitely want other approaches. Next we will run an Egger's regression, which is essentially a meta-regression using the standard error as a predictor. 
+
+```{r eggers meta-regression, include=TRUE}
+regtest(re_model)
+
+```
+
+The key output here is the z-value next to test for funnel plot asymmetry. In this case, it is significant, suggesting there is a relationship between the standard error and the effect size. This suggests evidence of small-sample bias, which can be caused by publication bias. 
+
+## Trim and fill
+Next is trim and ill. The best way to think of how trim and fill works is to think of how it is related to the funnel plot. This method makes the assumption that studies on either the left or the right side of the funnel are suppressed or missing. The first part, *trim*,iteratively removes studies (i.e., they are "trimmed"), from one side of the plot to determine how many would need to be removed to make the funnel symmetrical. After this, it estimates new effects that are mirror images of the effects that are remaining in our plot. An adjusted average weighted effect size is then calculated. 
+
+```{r trim and fill, include=TRUE}
+trimfill(re_model)
+```
+
+Interestingly, our trim and fill procedure did not suggest that any studies are missing. Thus, our average weighted effect size is exactly the same as the one we calculated before. 
+
+## Fail-safe N
+
+I'm going to be upfront and say unless a reviewer is making you use this procedure, do not do this. Even then, maybe try to push back a bit and explain that fail-safe N has been shown to have limited utility and can be severely misinterpreted. I won't go into that here but you can easily [google](https://handbook-5-1.cochrane.org/chapter_10/10_4_4_3_fail_safe_n.htm) it. That being said, in this case we will pretend we have a pesky reviewer who will not be satisfied until we calculate fail-safe N. 
+
+```{r fail safe n, include=TRUE}
+fsn(g, var_g, data = dat)
+```
+
+To interpret these results, this procedure suggests we would need 3326 non-significant studies to make our significant average weighted effect size no longer significant. 
+
+## Test of excess significance
+
+The idea behind this procedure is that it estimates the average power of the studies in your meta-analysis. Then, it figures out based on that power how many studies you would expect to be statistically significant, and compares that to how many studies you have that are significant. 
+
+```{r test of excess significance, include=TRUE}
+tes(re_model)
+```
+
+Here we see that we had 20 significant effects and the test estimated that we should have around 15 or 16. We also have the estimated power, which in this case was .94. Then, we see that the test of excess significance is itself significant. This means that we reject the null that we did not see more signifcant effects than expected. This suggests, there are maybe a few more significant effects than we would expect. 
+
+## Publication bias conclusion
+Based on the preponderance of evidence, is there publication bias present here? In this case, I think it would highly depend on the research area. This effect is absolutely massive. If we were expecting to see seeing this massive of an effect, then I would say that it seems there is a true effect and it is huge which is why we get flagged for publication bias on a few of our tests. But for the majority of cases in neuroscience and psychology, I would say that we have evidence of publication bias.
+
+# Plotting
+
+Now it is time to make some figures. I'm not going to walk through these, but if I were writing this up for publication, this is what I would do. 
+
+```{r plots, include=TRUE}
+forest(re_model, cex = .75, 
+       xlab = expression("Hedges'" ~italic('g')), 
+       xlim = c(-5, 10)) 
+text(-3.5, 22, 'Study Number', cex = 1)#add text to top left of plot
+text(9, 22, expression(italic("g ") * "[95% CI]"), pos=2)#add text to top right
+
+funnel(re_model, xlab = expression("Hedges'" ~italic('g')))#create funnel plot
+
+regplot(re_metareg)
+```
+
+Now I don't like the plot of our meta-regression, so I'm going to code one in ggplot and use Florida State University colors. 
+
+```{r fancy regression, include=TRUE, preview=TRUE}
+#one fancy regression plot with ggplot2 because I don't like the regplot
+predicted <- predict(re_metareg)#get 95% CI's for regression line
+plot_dat <- cbind(dat, predicted)#add output from predict to our data. 
+plot_dat$weights <- weights(re_metareg)#add weights for each study to our data
+
+#calculating regression line y coordinates at min and max by hand
+y_min <- (re_metareg$b[2]*min(plot_dat$grade)) + re_metareg$b[1]
+y_max <- (re_metareg$b[2]*max(plot_dat$grade)) + re_metareg$b[1]
+
+#creating the plot with three geoms: segment, which is the line, ribbon, which 
+#shows the 95% ci, and point, showing our actual data. 
+plot <- ggplot(data = plot_dat, aes(x = grade, y = g)) + 
+   geom_segment(aes(x = min(plot_dat$grade), y = y_min, 
+                    xend = max(plot_dat$grade), yend = y_max), 
+                color = '#CEB888', size = 1)+ 
+  geom_ribbon(aes(ymin = ci.lb, ymax = ci.ub, x = grade), 
+              alpha = .5, fill = '#CEB888') +
+  geom_point(color = '#782F40', aes(size = weights))
+```
+
+```{r, preview=TRUE}
+#Finishing touches
+plot + labs(x = 'Grade', y = expression("Hedges'" ~italic('g'))) + 
+  theme_classic(base_size = 20)
+```
+
+
+
+
+
+
